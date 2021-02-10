@@ -1,0 +1,28 @@
+FROM mondradiko-base
+
+RUN echo UTC > /etc/timezone
+
+# Tell the libraries not to use the interactive dialogs
+ARG DEBIAN_FRONTEND=noninteractive
+ARG TERM=linux
+
+# Fetch and build Mondradiko
+RUN cd /root \
+    && git clone --depth 1 --recurse-submodules https://github.com/mondradiko/mondradiko
+
+# But first, before the build can be started we must fixup the CMake scripts for the above wasmtime installation.
+# Temp fixup until wasmer and wasmtime have CMake installation scripts.
+# We do the above install and this mangles the cmake scripts to point to the installed location
+RUN cd /root/mondradiko \
+    && sed -i \
+        -e 's=${CMAKE_CURRENT_BINARY_DIR}/wasmtime-.*-x86_64-linux-c-api/=/root/wasmtime-v0.22.1-x86_64-linux-c-api=' \
+        lib/CMakeLists.txt
+
+RUN cd /root \
+    && cd mondradiko \
+    && mkdir builddir \
+    && cd builddir \
+    && cmake -GNinja .. \
+    && ninja \
+    && ninja install
+

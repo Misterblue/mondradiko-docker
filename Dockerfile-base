@@ -1,0 +1,110 @@
+FROM ubuntu:20.04 as mondradiko-base
+
+RUN echo UTC > /etc/timezone
+
+# Tell the libraries not to use the interactive dialogs
+ARG DEBIAN_FRONTEND=noninteractive
+ARG TERM=linux
+
+# Update the image
+RUN apt-get update \
+    && apt-get upgrade -y 
+
+# Get debugging tools
+RUN apt-get install -y git vim curl
+
+# Get libraries needed for build
+RUN apt-get install -y libglm-dev libsdl2-dev liblz4-dev libvulkan-dev \
+         ninja-build build-essential glslang-tools \
+         libzstd-dev libfreetype6-dev \
+         libprotobuf-dev protobuf-compiler libssl-dev \
+         libgl1-mesa-dev libx11-xcb-dev libxcb-dri2-0-dev \
+         libxcb-glx0-dev libxcb-icccm4-dev libxcb-keysyms1-dev \
+         libxcb-randr0-dev libxrandr-dev libxxf86vm-dev \
+         mesa-common-dev
+
+# Some Python3 libraries are needed
+RUN apt-get install -y python3-pip \
+    && pip3 install toml
+
+# We need a very new version of cmake
+RUN cd /root \
+    && export CMAKEVER=3.19.4 \
+    && curl -OL https://github.com/Kitware/CMake/releases/download/v${CMAKEVER}/cmake-${CMAKEVER}.tar.gz \
+    && tar -xzf cmake-${CMAKEVER}.tar.gz \
+    && cd cmake-${CMAKEVER} \
+    && ./bootstrap \
+    && make \
+    && make install \
+    && cd /root \
+    && rm -rf cmake-${CMAKEVER}*
+
+# xxHash
+RUN cd /root \
+    && git clone --depth 1 https://github.com/Cyan4973/xxHash \
+    && cd xxHash \
+    && make \
+    && make install \
+    && cd /root \
+    && rm -rf xxHash
+
+# KTX-Software
+# Fetch the latest tarball from https://github.com/KhronosGroup/KTX-Software/releases
+RUN cd /root \
+    && export KTX_Software=4.0.0-beta6 \
+    && curl -OL "https://github.com/KhronosGroup/KTX-Software/archive/v${KTX_Software}.tar.gz" \
+    && tar -xzf "v${KTX_Software}.tar.gz" \
+    && cd "KTX-Software-${KTX_Software}" \
+    && mkdir build \
+    && cd build \
+    && cmake -GNinja .. \
+    && ninja \
+    && ninja install \
+    && cd /root \
+    && rm -rf *${KTX_Software}*
+
+# GameNetworkingSockets
+# Fetch the latest tarball from https://github.com/ValveSoftware/GameNetworkingSockets/releases
+RUN cd /root \
+    && export GameNetworkingSockets=1.2.0 \
+    && curl -OL "https://github.com/ValveSoftware/GameNetworkingSockets/archive/v${GameNetworkingSockets}.tar.gz" \
+    && tar -xzf "v${GameNetworkingSockets}.tar.gz" \
+    && cd "GameNetworkingSockets-${GameNetworkingSockets}" \
+    && mkdir build \
+    && cd build \
+    && cmake -GNinja -DGAMENETWORKINGSOCKETS_BUILD_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=Release .. \
+    && ninja \
+    && ninja install \
+    && cd /root \
+    && rm -rf *GameNetworkingSockets*
+
+# OpenXR SDK
+RUN cd /root \
+    && git clone --depth 1 https://github.com/KhronosGroup/OpenXR-SDK \
+    && cd OpenXR-SDK \
+    && mkdir build \
+    && cd build \
+    && cmake -GNinja -DCMAKE_BUILD_TYPE=Release .. \
+    && ninja \
+    && ninja install \
+    && cd /root \
+    && rm -rf OpenXR-SDK
+
+# Flatbuffers
+RUN cd /root \
+    && git clone --depth 1 https://github.com/google/flatbuffers \
+    && cd flatbuffers \
+    && mkdir build \
+    && cd build \
+    && cmake -GNinja -DCMAKE_BUILD_TYPE=Release .. \
+    && ninja \
+    && ninja install \
+    && cd /root \
+    && rm -rf flatbuffers
+
+# Get a release of wasmtime for compilation
+RUN cd /root \
+    && export WASMTIME=wasmtime-v0.22.1-x86_64-linux-c-api \
+    && curl -OL "https://github.com/bytecodealliance/wasmtime/releases/download/v0.22.1/${WASMTIME}.tar.xz" \
+    && tar -xf "${WASMTIME}.tar.xz" \
+    && rm "${WASMTIME}.tar.xz"
