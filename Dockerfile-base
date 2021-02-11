@@ -76,7 +76,7 @@ RUN cd /root \
     && ninja \
     && ninja install \
     && cd /root \
-    && rm -rf *GameNetworkingSockets*
+    && rm -rf "v${GameNetworkingSockets}.tar.gz" GameNetworkingSockets*
 
 # OpenXR SDK
 RUN cd /root \
